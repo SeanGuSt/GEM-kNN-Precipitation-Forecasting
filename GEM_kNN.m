@@ -79,11 +79,11 @@ function [expect, k_nn, observe] = GEM_kNN(data, data_normalized, targetDate, ab
     expect = zeros([1, numel(val2Forecast)]);
     df = 1:daysForward;
     for i = 1:k
-        k_nn(i, :) = sum(data(k_daysChosen(i) + df, val2Forecast), 1);
+        k_nn(i, :) = mean(data(k_daysChosen(i) + df, val2Forecast), 1);
         expect = expect + k_nn(i, :)*k_weights(i);
     end
     if nargout > 2
-        try observe = sum(data(dateIndex_target + df, val2Forecast), 1);
+        try observe = mean(data(dateIndex_target + df, val2Forecast), 1);
         catch
             warning("Not enough data to generate the desired observed results. Assigning observe = -1");
             observe = -1;

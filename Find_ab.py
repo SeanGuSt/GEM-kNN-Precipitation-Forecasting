@@ -93,7 +93,7 @@ for ind_b in range(num_b):
         if not isinstance(kTemp, int):
             k = int(np.floor(np.sqrt(num_analogDates)))
         if weight_type == "uniform":
-            K = np.ones(k)
+            K = np.ones(k)/k
         elif weight_type == "neighbor":
             K = 1/np.arange(1,k+1)
             K = K/K.sum()
@@ -135,7 +135,7 @@ filename = filepath.split("\\")[-1].split(" ")[0]
 dataframe_ea = pd.DataFrame(exp_all, columns=header, index=index_ea)
 dataframe_sea = pd.DataFrame(square_errors_all, columns=header, index=index_sea)
 dataframe_obs = pd.DataFrame(obs, columns=["No (a, b)"], index=index_ea)
-dataframe_cab = pd.DataFrame(chosen_pairs, columns = ["Chosen", "RMSE"], index=index_sea)
+dataframe_cab = pd.DataFrame(chosen_pairs, columns = ["Chosen", "RMSE (unit/day)"], index=index_sea)
 with pd.ExcelWriter(f'{filename} training k_type{kTemp} weight_type{weight_type} w{w} f{f}.xlsx') as writer:
     dataframe_ea.to_excel(writer, sheet_name = "Forecasts")
     dataframe_obs.to_excel(writer, sheet_name = "Observed")

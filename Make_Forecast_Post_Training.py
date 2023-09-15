@@ -36,6 +36,8 @@ while True:
             elif len(test_target_months) != len(A):
                 print("Oops! A and B aren't the same length as test_target_months!")
                 continue
+        if test_target_years[0] < 0:
+            test_target_years = range(-test_target_years[0], test_target_years[1] + 1)
         y, m, d = np.meshgrid(test_target_years, test_target_months, test_target_days)
         y, m, d = removeImpossibleDates(y.flatten(), m.flatten(), d.flatten())
         num_tarDays = len(d)
@@ -102,7 +104,7 @@ for day in range(num_tarDays):
     if not isinstance(kTemp, int):
         k = int(np.floor(np.sqrt(num_analogDates)))
     if weight_type == "uniform":
-        K = np.ones(k)
+        K = np.ones(k)/k
     elif weight_type == "neighbor":
         K = 1/np.arange(1,k+1)
         K = K/K.sum()
@@ -130,10 +132,11 @@ for day in range(num_tarDays):
 mainBox = np.hstack((exp, obs, abs_err))
 filename = filepath.split("\\")[-1].split(" ")[0]
 resCols = []
+days_per_month = num_tarDays/len(test_target_months)
 for i in range(1, kmax+1):
     resCols.append(f"k = {i}")
-dataframe_out = pd.DataFrame(mainBox, columns=["Expected", "Observed", "Abs. Err."], index=index_ea)
-dataframe_rmse = pd.DataFrame(np.sqrt(square_errors), columns = ["RMSE"], index=index_sea)
+dataframe_out = pd.DataFrame(mainBox, columns=["Expected (unit/day)", "Observed (unit/day)", "Abs. Err. (unit/day)"], index=index_ea)
+dataframe_rmse = pd.DataFrame(np.sqrt(square_errors/days_per_month), columns = ["RMSE (unit/day)"], index=index_sea)
 dataframe_k = pd.DataFrame(kexp, columns = resCols, index = index_ea)
 with pd.ExcelWriter(f'{filename} testing k{k} w{w} f{f}.xlsx') as writer:
     dataframe_out.to_excel(writer, sheet_name = "Results")

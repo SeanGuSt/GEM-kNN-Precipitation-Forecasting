@@ -112,6 +112,11 @@ def open_param_file():
         params = json.loads(f.read())
     for name in var_names:
             globals()[name] = params[name]
+    if test_target_months[0] < 0:
+        try:
+            test_target_months = range(-test_target_months[0], test_target_months[1] + 1)
+        except:
+            test_target_months = range(1, -test_target_months[0] + 1)
     if test_target_years[0] < 0:
         test_target_years = range(-test_target_years[0], test_target_years[1] + 1)
     y, m, d = np.meshgrid(test_target_years, test_target_months, test_target_days)
@@ -208,17 +213,18 @@ def make_fc_folder():
             cl = np.hstack((cl, dicti["cl"]))
             sqr_err = np.hstack((sqr_err, dicti["sq_err"]))
             kexp = np.hstack((kexp, dicti["kexp"]))
-            mink = np.hstack((mink, dicti["mink"]))
-            maxk = np.hstack((maxk, dicti["maxk"]))
+            #Remove ALL 6 Quotation Marks before and after if you want these data
+            """mink = np.hstack((mink, dicti["mink"]))
+            maxk = np.hstack((maxk, dicti["maxk"]))"""
             obs = dicti["obs"]
     chosen_pairs_real = []
     chosen_pairs = np.zeros((12, kmax+1), dtype = int)
     for i in range(12):
-        cpr = ["" for _ in range(kmax+1)]
         if i+1 not in test_target_months:
             chosen_pairs[i, :] = -1
-            cpr[range(kmax+1)] = "-1"
+            cpr = ["-1" for _ in range(kmax+1)]
         else:
+            cpr = ["" for _ in range(kmax+1)]
             chosen_pairs[i, 0] = np.argmin(sqr_err[i,:])
             cpr[0] = header[chosen_pairs[i, 0]]
             for j in range(kmax):
@@ -257,8 +263,9 @@ def make_fc_folder():
     make_dir_if_new(f"{direc}/{FOL_K}")
     make_dir_if_new(f"{direc}/{FOL_CI}")
     make_dir_if_new(f"{direc}/{FOL_CL}")
-    make_dir_if_new(f"{direc}/{FOL_MINK}")
-    make_dir_if_new(f"{direc}/{FOL_MAXK}")
+    #Remove ALL 6 Quotation Marks before and after if you want this data
+    """make_dir_if_new(f"{direc}/{FOL_MINK}")
+    make_dir_if_new(f"{direc}/{FOL_MAXK}")"""
     for i in range(kmax):
         dataframe_k = pd.DataFrame(kexp[:, :, i], columns=header, index=index_ea)
         dataframe_k.to_csv(f'{direc}/{FOL_K}/{FIL_K}{i+1}.csv')
@@ -266,6 +273,7 @@ def make_fc_folder():
         dataframe_cl = pd.DataFrame(cl[:, :, i], columns = header, index = index_sea)
         dataframe_ci.to_csv(f'{direc}/{FOL_CI}/{FIL_CI}{i+1}.csv')
         dataframe_cl.to_csv(f'{direc}/{FOL_CL}/{FIL_CL}{i+1}.csv')
+        #Remove ALL 6 Quotation Marks before and after if you want this data
         """dataframe_min = pd.DataFrame(mink[:, :, i], columns = header, index = index_ea)
         dataframe_max = pd.DataFrame(maxk[:, :, i], columns = header, index = index_ea)
         dataframe_min.to_csv(f'{direc}/{FOL_MINK}/{FIL_MINK}{i+1}.csv')

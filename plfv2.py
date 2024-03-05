@@ -102,7 +102,8 @@ def parloop_func(gd):
                 mink[day, a, i], maxk[day, a, i], ci[m[day]-1, a, i], cl[m[day]-1, a, i] = ci_and_cl(kexp[day, a, range(i+1)], obs[day], ci[m[day]-1, a, i], cl[m[day]-1, a, i])
             square_errors[m[day]-1, a] += np.power(obs[day]-exp[day, a], 2)
     print(f"b = {b} completed")
-    return {"sq_err": fixed_(square_errors, amin_b, excess, DY, True), "exp": trim_(exp, amin_b), "obs": obs, "ci": fixed_(ci, amin_b, excess, DY), "cl": fixed_(cl, amin_b, excess, DY), "kexp" : np.delete(kexp, range(amin_b), 1), "mink" : np.delete(mink, range(amin_b), 1), "maxk" : np.delete(maxk, range(amin_b), 1)}
+    #Remove the #} if you want the mink and maxk data as well
+    return {"sq_err": fixed_(square_errors, amin_b, excess, DY, True), "exp": trim_(exp, amin_b), "obs": obs, "kexp" : np.delete(kexp, range(amin_b), 1), "ci": fixed_(ci, amin_b, excess, DY), "cl": fixed_(cl, amin_b, excess, DY)}#, "mink" : np.delete(mink, range(amin_b), 1), "maxk" : np.delete(maxk, range(amin_b), 1)}
 
 def parloop_getk(gd):
     filepath = gd["filepath"]
@@ -111,7 +112,7 @@ def parloop_getk(gd):
     return x
 
 def ci_and_cl(kvals, o, ci, cl):
-    lb = np.min(kvals)
+    lb = np.min(kvals[kvals > -1])
     ub = np.max(kvals)
     ci += ub - lb
     cl += (lb <= o and o <= ub)

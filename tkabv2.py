@@ -97,7 +97,7 @@ def open_station_file():
     abelize_buttons(MSG_STATION_GET, True)
 
 def open_param_file():
-    global precipCol, amin, amax, bmin, bmax, abmin, abmax, f, kTemp, w, test_target_years, test_target_months, test_target_days, weight_type, d, m, y, amin_, amax_, num_b, num_ab, range_b, num_tarDays, num_samples, num_var, kmax, data_normalized_original, windowSize, lag, lead, weight, data_len, df, DY, kTemp, lend, leny
+    global precipCol, amin, amax, bmin, bmax, abmin, abmax, f, kTemp, w, test_target_years, test_target_months, test_target_days, weight_type, d, m, y, amin_, amax_, num_b, num_ab, range_b, num_tarDays, num_samples, num_var, kmax, data_normalized_original, windowSize, lag, lead, weight, data_len, df, DY, kTemp, lend, leny, max_workers
     if not have_data.get():
         update_notice(MSG_GIB_DATA)
         return
@@ -135,7 +135,7 @@ def open_param_file():
     num_samples, num_var = np.shape(data)
     data_normalized_original = np.zeros(data.shape)
     weight = np.ones(num_var)
-    weight[precipCol] = 3
+    #weight[precipCol] = 3
     for col in range(num_var):
         data_normalized_original[:, col] = data[:,col] - np.average(data[:,col])
         data_normalized_original[:, col] /= np.std(data[:,col])
@@ -155,7 +155,7 @@ def open_param_file():
     if isinstance(kTemp, int):
         kmax = kTemp
     else:
-        kmax = int(np.ceil(np.sqrt((np.amax(y) - np.amin(dates[:,0]) + 1)*windowSize)))
+        kmax = int(np.floor(np.sqrt((np.amax(y) - np.amin(dates[:,0]))*windowSize)))
     var_klimit.set(kmax)
     var_firstyear.set(y[0])
     var_lastyear.set(y[-1])
@@ -181,7 +181,7 @@ def make_fc_folder():
         mins = np.floor(secs/60)
         secs -= 60*mins
         return hrs.astype(int), mins.astype(int), np.floor(secs).astype(int)
-    hrs, mins, secs = get_time((0.000033*num_samples + 0.125*num_tarDays)*num_b/2.5 + 12*kmax)
+    hrs, mins, secs = get_time((0.000033*num_samples + 0.00208*num_tarDays)*num_ab + 12*kmax)
     abelize_buttons(f"Proceeding with training. Please allow {hrs} hr. {mins} min. {secs} sec.", False)
     timerStart = time.time()
     header = []
@@ -194,9 +194,10 @@ def make_fc_folder():
     index_sea = ["Jan.", "Feb", "Mar.", "Apr.", "May", "June", "July", "Aug.", "Sep.", "Oct.", "Nov", "Dec."]
     exp = np.empty((num_tarDays, 0))
     kexp = np.empty((num_tarDays, 0, kmax))
-    sqr_err = np.empty((12,0))
-    ci = np.empty((12, 0, kmax))
-    cl = np.empty((12, 0, kmax))
+    sqr_err = np.empty((NUM_MONTHS,0))
+    ci = np.empty((NUM_MONTHS, 0, kmax))
+    cl = np.empty((NUM_MONTHS, 0, kmax))
+    dmy = np.empty((num_tarDays, 0, kmax))
     mink = np.empty((num_tarDays, 0, kmax))
     maxk = np.empty((num_tarDays, 0, kmax))
     num_o = np.shape(data)[0]
@@ -204,22 +205,23 @@ def make_fc_folder():
     obs_all[:, 0] = dates[:(num_o-f), 1]
     for i in range(num_o-f):
         obs_all[i, 1] = data[i + df, precipCol].mean()
-    with cf.ProcessPoolExecutor() as executor:
+    with cf.ProcessPoolExecutor(max_workers = max_workers) as executor:
         # Submit tasks to the executor
-        ans = executor.map(parloop_func, [superdict(i) for i in range(num_b)], chunksize = 2)
+        ans = executor.map(parloop_func, [superdict(i) for i in range(num_b)], chunksize = 1)
         for dicti in ans:
             exp = np.hstack((exp, dicti["exp"]))
             ci = np.hstack((ci, dicti["ci"]))
             cl = np.hstack((cl, dicti["cl"]))
             sqr_err = np.hstack((sqr_err, dicti["sq_err"]))
+            dmy = np.hstack((dmy, dicti["dmy"]))
             kexp = np.hstack((kexp, dicti["kexp"]))
             #Remove ALL 6 Quotation Marks before and after if you want these data
             """mink = np.hstack((mink, dicti["mink"]))
             maxk = np.hstack((maxk, dicti["maxk"]))"""
             obs = dicti["obs"]
     chosen_pairs_real = []
-    chosen_pairs = np.zeros((12, kmax+1), dtype = int)
-    for i in range(12):
+    chosen_pairs = np.zeros((NUM_MONTHS, kmax+1), dtype = int)
+    for i in range(NUM_MONTHS):
         if i+1 not in test_target_months:
             chosen_pairs[i, :] = -1
             cpr = ["-1" for _ in range(kmax+1)]
@@ -233,7 +235,7 @@ def make_fc_folder():
         chosen_pairs_real.append(cpr)      
     lend = len(test_target_days)
     leny = len(test_target_years)
-    other = [lend, leny, DY, f, kmax]
+    other = [lend, leny, DY, f, kmax, max_workers]
     stationname = filepath.split("/")[-1].split(" ")[0]
     h2 = ["by RMSE", "by Conf. Level for k = 1"]
     for i in range(2, kmax+1):
@@ -248,7 +250,7 @@ def make_fc_folder():
     #dataframe_cl = pd.DataFrame(cl, columns = header, index = index_sea)
     dataframe_cab = pd.DataFrame(chosen_pairs, columns=h2, index=index_sea)
     dataframe_cabr = pd.DataFrame(chosen_pairs_real, columns=h2, index=index_sea)
-    dataframe_other = pd.DataFrame(other, index = ["lend", "leny", "DY", "f", "kmax"])
+    dataframe_other = pd.DataFrame(other, index = ["lend", "leny", "DY", "f", "kmax", "max_workers"])
     make_dir_if_new(direc)
     with pd.ExcelWriter(f'{direc}/{FIL_NAME}.xlsx') as writer:
         dataframe_ea.to_excel(writer, sheet_name = SHT_EXP)
@@ -263,6 +265,7 @@ def make_fc_folder():
     make_dir_if_new(f"{direc}/{FOL_K}")
     make_dir_if_new(f"{direc}/{FOL_CI}")
     make_dir_if_new(f"{direc}/{FOL_CL}")
+    make_dir_if_new(f"{direc}/{FOL_DMY}")
     #Remove ALL 6 Quotation Marks before and after if you want this data
     """make_dir_if_new(f"{direc}/{FOL_MINK}")
     make_dir_if_new(f"{direc}/{FOL_MAXK}")"""
@@ -271,8 +274,10 @@ def make_fc_folder():
         dataframe_k.to_csv(f'{direc}/{FOL_K}/{FIL_K}{i+1}.csv')
         dataframe_ci = pd.DataFrame(ci[:, :, i], columns=header, index=index_sea)
         dataframe_cl = pd.DataFrame(cl[:, :, i], columns = header, index = index_sea)
+        dataframe_dmy = pd.DataFrame(dmy[:, :, i], columns = header, index = index_ea)
         dataframe_ci.to_csv(f'{direc}/{FOL_CI}/{FIL_CI}{i+1}.csv')
         dataframe_cl.to_csv(f'{direc}/{FOL_CL}/{FIL_CL}{i+1}.csv')
+        dataframe_dmy.to_csv(f'{direc}/{FOL_DMY}/{FIL_DMY}{i+1}.csv')
         #Remove ALL 6 Quotation Marks before and after if you want this data
         """dataframe_min = pd.DataFrame(mink[:, :, i], columns = header, index = index_ea)
         dataframe_max = pd.DataFrame(maxk[:, :, i], columns = header, index = index_ea)
@@ -287,7 +292,7 @@ def make_fc_folder():
     abelize_buttons(f"Procedure Completed in {hrs} hr. {mins} min. {secs} sec.", True)
 
 def load_fc_folder():
-    global obs, obs_all, kexp, ci, cl, chosen_pairs, DY, lend, leny, f, kmax, direc, index_ea
+    global obs, obs_all, kexp, ci, cl, chosen_pairs, DY, lend, leny, f, kmax, direc, index_ea, max_workers
     if var_chooser.get() == 0:
         update_notice(MSG_GIB_METHOD)
         return
@@ -310,13 +315,13 @@ def load_fc_folder():
     except:
         abelize_buttons(ERR_SHT, True)
         return
-    lend = int(other[0, 1]); leny = int(other[1, 1]); DY = int(other[2, 1]); f = int(other[3, 1]); kmax = int(other[4, 1])
+    lend = int(other[0, 1]); leny = int(other[1, 1]); DY = int(other[2, 1]); f = int(other[3, 1]); kmax = int(other[4, 1]); max_workers = int(other[5, 1])
     var_klimit.set(kmax)
     num_tarDays, num_ab = np.shape(exp)
-    kexp = np.zeros((num_tarDays, num_ab - 1, kmax))
+    kexp = -np.ones((num_tarDays, num_ab - 1, kmax))
     ci= np.zeros((num_tarDays, num_ab - 1, kmax))
     cl= np.zeros((num_tarDays, num_ab - 1, kmax))
-    with cf.ProcessPoolExecutor() as executor:
+    with cf.ProcessPoolExecutor(max_workers = max_workers) as executor:
         # Submit tasks to the executor
         try:
             filepath_k = f"{direc}/{FOL_K}/{FIL_K}"
@@ -360,12 +365,12 @@ def draw_graphs():
     abelize_buttons(MSG_PREP_GRAPHS, False)
     klimit = int(var_klimit.get())
     pairs = chosen_pairs[:, klimit*(var_chooser.get() - 1)]
-    knn_min = np.zeros((DY, 12)); knn_max = np.zeros((DY, 12)); obse = np.zeros((DY, 12))
+    knn_min = np.zeros((DY, NUM_MONTHS)); knn_max = np.zeros((DY, NUM_MONTHS)); obse = np.zeros((DY, NUM_MONTHS))
     ind = np.arange(DY)
     histox = []; ciset = []; clset = []; obrset = []; histxticks = []; netchange = []
     plotxticks = np.arange(int(np.ceil(lend/2)), np.sum(pairs>-1)*DY, np.sum(pairs>-1)*lend)
     plotxticklabels = sorted(set([int(a.split("-")[0])for a in index_ea]))
-    for i in range(12):
+    for i in range(NUM_MONTHS):
         if pairs[i] > -1:
             ci1 = 0
             cl1 = 0
@@ -386,7 +391,7 @@ def draw_graphs():
     ind_i = np.arange(lend)
     ind_iI = np.arange(lend)
     for I in range(leny):
-        for i in range(12):
+        for i in range(NUM_MONTHS):
             if pairs[i] > -1:
                 g_low[ind_iI] = knn_min[ind_i, i]
                 g_high[ind_iI] = knn_max[ind_i, i]

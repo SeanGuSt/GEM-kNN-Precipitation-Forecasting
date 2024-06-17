@@ -27,6 +27,7 @@ SHT_OBS = "Observed"
 SHT_ALLO = "All Possible Observed"
 SHT_CI = "Confidence Intervals"
 SHT_CL = "Confidence Levels"
+SHT_DMY = "Dates"
 SHT_RCAB = "Chosen Pairs"
 SHT_CAB = "Chosen Pairs Index"
 SHT_OTHER = "Other"
@@ -38,15 +39,18 @@ FOL_CI = "Confidence Intervals"
 FIL_CI = "Results cik"
 FOL_CL = "Confidence Levels"
 FIL_CL = "Results clk"
+FOL_DMY = "Dates"
+FIL_DMY = "Results dmyk"
 FOL_MINK = "Minimum k Values"
 FIL_MINK = "Results mink"
 FOL_MAXK = "Maximum k Values"
 FIL_MAXK = "Results maxk"
-var_names = ["precipCol", "amin", "amax", "bmin", "bmax", "abmin", "abmax", "f", "kTemp", "w", "test_target_days", "test_target_months", "test_target_years", "weight_type"]
+var_names = ["precipCol", "amin", "amax", "bmin", "bmax", "abmin", "abmax", "f", "kTemp", "w", "test_target_days", "test_target_months", "test_target_years", "weight_type", "max_workers"]
 dist_weight_type_list = ["uniform", "dist", "neighbor"]
 index_sea = ["Jan.", "Feb", "Mar.", "Apr.", "May", "June", "July", "Aug.", "Sep.", "Oct.", "Nov", "Dec."]
 AB_CONF = 2
 AB_RMSE = 1
+NUM_MONTHS = 12
 
 
 

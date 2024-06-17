@@ -44,12 +44,13 @@ def parloop_func(gd):
     data_normalized = np.zeros(data.shape)
     exp = np.zeros((num_tarDays, amax_b))
     kexp = -np.ones((num_tarDays, amax_b, kmax))
+    dmy = []
     obs = np.zeros(num_tarDays)
     square_errors = np.zeros((12, amax_b))
     ci = np.zeros((12, amax_b, kmax))
     cl = np.zeros((12, amax_b, kmax))
-    mink = np.zeros((num_tarDays, amax_b, kmax))
-    maxk = np.zeros((num_tarDays, amax_b, kmax))
+    mink = -np.ones((num_tarDays, amax_b, kmax))
+    maxk = -np.ones((num_tarDays, amax_b, kmax))
     excess = np.zeros(12)
     for row in range(b, num_samples):
         data_normalized[row, :] = data_normalized_original[row + grabber, :].mean(0)
@@ -85,6 +86,7 @@ def parloop_func(gd):
         dateIndex_analog = dateIndex_analog0
         num_analogDates = dateIndex_analog.size
         ed = np.zeros(num_analogDates)
+        ymd_mat = []
         for a in range(amax_b):
             ed += np.dot(np.power(data_normalized[dateIndex_target,:] - data_normalized[dateIndex_analog, :], 2), weight)
             dateIndex_target -= b
@@ -95,15 +97,20 @@ def parloop_func(gd):
             if weight_type == "dist":
                 K = 1./np.sqrt(ed[ed_ind[range(k)]])
                 K /= sum(K)
+            ymd_row = []
             for i in range(k):
                 kexp[day, a, i] = data[dateIndex_analog0[ed_ind[i]] + df, precipCol].mean()
+                ymd_row.append(f'{dates[dateIndex_analog0[ed_ind[i]], 2]}/{dates[dateIndex_analog0[ed_ind[i]], 1]}/{dates[dateIndex_analog0[ed_ind[i]], 0]}')
                 exp[day, a] += kexp[day, a, i]*K[i]
-            for i in range(1, k):
+            ymd_mat.append(ymd_row)
+           # dmy[day, a, :] = ymd_row
+            for i in range(1, kmax):
                 mink[day, a, i], maxk[day, a, i], ci[m[day]-1, a, i], cl[m[day]-1, a, i] = ci_and_cl(kexp[day, a, range(i+1)], obs[day], ci[m[day]-1, a, i], cl[m[day]-1, a, i])
             square_errors[m[day]-1, a] += np.power(obs[day]-exp[day, a], 2)
+        dmy.append(ymd_mat)
     print(f"b = {b} completed")
-    #Remove the #} if you want the mink and maxk data as well
-    return {"sq_err": fixed_(square_errors, amin_b, excess, DY, True), "exp": trim_(exp, amin_b), "obs": obs, "kexp" : np.delete(kexp, range(amin_b), 1), "ci": fixed_(ci, amin_b, excess, DY), "cl": fixed_(cl, amin_b, excess, DY)}#, "mink" : np.delete(mink, range(amin_b), 1), "maxk" : np.delete(maxk, range(amin_b), 1)}
+    #Remove the }# if you want the mink and maxk data as well
+    return {"sq_err": fixed_(square_errors, amin_b, excess, DY, True), "exp": trim_(exp, amin_b), "obs": obs, "kexp" : np.delete(kexp, range(amin_b), 1), "dmy" : dmy, "ci": fixed_(ci, amin_b, excess, DY), "cl": fixed_(cl, amin_b, excess, DY)}#, "mink" : np.delete(mink, range(amin_b), 1), "maxk" : np.delete(maxk, range(amin_b), 1)}
 
 def parloop_getk(gd):
     filepath = gd["filepath"]

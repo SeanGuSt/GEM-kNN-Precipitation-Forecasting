@@ -1,6 +1,7 @@
 import numpy as np
 from ResultsHandler import getDataFrameHeader
-def scoreFunction(self, bigDicti):
+from GEMObj import GEMObj
+def scoreFunction(self: GEMObj, bigDicti: dict):
     exp = bigDicti["exp"]
     obs = np.zeros(self.num_tarDays)
     con = np.zeros(self.num_tarDays)
@@ -23,9 +24,9 @@ def scoreFunction(self, bigDicti):
         GEMC_compare[day, :] = GEMO_error[day, :] <= CO_error[day]
     bigDicti["GEMC_compare"] = GEMC_compare    
     return bigDicti
-def reassignABPairs(self, bigDicti):
+def reassignABPairs(self: GEMObj, bigDicti: dict):
     NUM_MONTHS = 12
-    header = getDataFrameHeader(self)
+    header = getDataFrameHeader(self, True)
     GEMC_compare = bigDicti["GEMC_compare"]
     num_ab = GEMC_compare.shape[1]
     chosen_pairs_real = ["" for _ in range(NUM_MONTHS)]

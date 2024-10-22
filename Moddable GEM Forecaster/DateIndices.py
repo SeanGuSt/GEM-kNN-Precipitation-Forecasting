@@ -1,5 +1,6 @@
 import numpy as np
-def getIndices(self, y, m, d, amax_b, b, returnEarly = False):
+from GEMObj import GEMObj
+def getIndices(self: GEMObj, y: int, m: int, d: int, amax_b: int, b: int, returnEarly = False):
     suffix = "StdInd"
     dateIndex_bools = [self.dates[i,0]<=y and self.dates[i,1]==m and self.dates[i,2]==d for i in range(self.num_samples)]
     dateIndex = np.nonzero(dateIndex_bools)

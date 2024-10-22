@@ -3,7 +3,7 @@ import numpy as np
 import json
 tryAgain_standard = "I'm sorry, please try again: "
 def input_defaultsFile():
-    filepath = input("Please give the full path to your parameters file: ")
+    filepath = "C:/Users/scg2600\OneDrive - University of Texas at Arlington/Documents/Oklahoma Weather Station Data/defaultsTrain.txt"#input("Please give the full path to your parameters file: ")
     while True:
         try:
             print("One moment...")
@@ -11,11 +11,11 @@ def input_defaultsFile():
                 data = f.read()
             return json.loads(data)
         except:
-            filepath = input("File not found. Check that the path and filename are correct, then try again.\n(To find the full path, you can right click the file, then click Properties>Security>Object Name):  ")
+            filepath = input("File not found, or invalid. Check that the path and filename are correct, then try again.\n(To find the full path, you can right click the file, then click Properties>Security>Object Name):  ")
             continue
 
 def input_getFile():
-    filepath = input("Please give the full path to your file: ")
+    filepath = "C:/Users/scg2600/OneDrive - University of Texas at Arlington/Documents/Oklahoma Weather Station Data/Chandler daily 1902-2009.xlsx"#input("Please give the full path to your file: ")
     while True:
         try:
            print("One moment...")

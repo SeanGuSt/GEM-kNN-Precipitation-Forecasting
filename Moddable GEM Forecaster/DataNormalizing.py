@@ -1,5 +1,6 @@
 import numpy as np
-def standardNormalize(self):
+from GEMObj import GEMObj
+def standardNormalize(self: GEMObj):
     suffix = "Gaussian"
     data_normalized_original = np.zeros(self.data.shape)
     for col in range(self.num_var):

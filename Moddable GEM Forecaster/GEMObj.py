@@ -11,6 +11,8 @@ class GEMObj:
                 self.precipCol = myDict["precipCol"]
                 self.amin = myDict["amin"]
                 self.amax = myDict["amax"]
+                self.A = myDict["A"]
+                self.B = myDict["B"]
                 self.bmin = myDict["bmin"]
                 self.bmax = myDict["bmax"]
                 self.abmin = myDict["abmin"]
@@ -32,16 +34,11 @@ class GEMObj:
                 self.target_days = dateShortcuts(myDict["target_days"])
                 self.target_months = dateShortcuts(myDict["target_months"])
                 self.target_years = dateShortcuts(myDict["target_years"])
-                y, m, d = np.meshgrid(self.target_years, self.target_months, self.target_days)
-                y, m, d = removeImpossibleDates(y.flatten(), m.flatten(), d.flatten())
-                self.num_tarDays = len(d)
+                self.y, self.m, self.d = self.getAndCheckTargetDates(self.target_years, self.target_months, self.target_days)
                 if self.num_tarDays==0:
-                    print("Oops! The parameters you gave resulted in no possible target dates! Please try again.")
+                    print("Oops! The parameters you gave resulted in no possible target dates!")
                     continue
                 self.precipCol -= 1#Moves the precipCol 1 to the left (since python starts counting with 0)
-                self.y = y
-                self.m = m
-                self.d = d
                 self.max_workers = myDict["max_workers"]
                 break
             except:
@@ -50,11 +47,13 @@ class GEMObj:
         doTraining = testTrain == "train"
         if doTraining:
             print("Beginning (a, b) pair training...")
+            self.Train(doTraining)
         else:
             print("Beginning forecasting...") 
-        self.TestTrain(doTraining)
+            self.Test(doTraining)
+        
 
-    def TestTrain(self, doTraining):
+    def Train(self, doTraining):
         bigDicti = self.makeEmptyResults()
         self.data_normalized_original, bigDicti["FNS_norm"] = self.dataNormalize()#Moddable Function
         with cf.ProcessPoolExecutor(max_workers = self.max_workers) as executor:
@@ -62,16 +61,37 @@ class GEMObj:
             ans = executor.map(self.parloop_func, [b for b in range(self.bmin, self.bmax+1)], chunksize = 1)
             for dicti in ans:
                 bigDicti = self.stackResults(dicti, bigDicti)#Moddable Function
-                bigDicti["FNS_distWeight"] = dicti["FNS_distWeight"]
-                bigDicti["FNS_dist"] = dicti["FNS_dist"]
-                bigDicti["FNS_castWeight"] = dicti["FNS_castWeight"]
-                bigDicti["FNS_cast"] = dicti["FNS_cast"]
-        print("Data Collection Complete!")
-        if doTraining:
-            print("Beginning (a, b) pair scoring...")
-            bigDicti = self.calcScore(bigDicti)#Moddable Function
-            print("Choosing best (a, b) pairs...")
-            bigDicti = self.selectGFV(bigDicti)#Moddable Function
+        print("Data Stacking Complete!")
+        if True:
+            print("Performing Dr. Zhang's idea...")
+            exp = np.arange(self.num_tarDays)
+            for day in range(self.num_tarDays):
+                superDist = bigDicti["distBest"][day, :, :].flatten()
+                superkexp = bigDicti["kexp"][day, :, :].flatten()
+                superDist_ind = superDist.argsort()
+                castWeight, _ = self.calcCastWeight(superDist_ind)#Moddable Function
+                k = self.getk(superDist_ind)
+                exp[day] = np.dot(superkexp[superDist_ind[:k]], castWeight)
+            bigDicti["exp_Zhang"] = exp
+            print("Dr. Zhang's idea has been tested!")
+            print(bigDicti["exp_Zhang"])
+        print("Beginning (a, b) pair scoring...")
+        bigDicti = self.calcScore(bigDicti)#Moddable Function
+        print("(a, b) pairs scored! Choosing best (a, b) pairs...")
+        bigDicti = self.selectGFV(bigDicti)#Moddable Function
+        print("(a, b) pairs chosen! Saving results to data file's directory...")
+        self.saveResults(bigDicti, doTraining)#Moddable Function
+    
+    def Test(self, doTraining):
+        bigDicti = self.makeEmptyResults()
+        self.data_normalized_original, bigDicti["FNS_norm"] = self.dataNormalize()#Moddable Function
+        for M in range(len(self.B)):
+            if M+1 in self.target_months:
+                self.amin = self.A[M] - 1
+                self.amax = self.A[M]
+                dicti = self.parloop_func(self.B[M])
+                bigDicti = self.stackResults(dicti, bigDicti)#Moddable Function
+        print("Data Collection Complete! Saving results to data file's directory...")
         self.saveResults(bigDicti, doTraining)#Moddable Function
         
 
@@ -84,25 +104,35 @@ class GEMObj:
             data_normalized[row, :] = self.data_normalized_original[row + grabber, :].mean(0)
         exp = np.zeros((self.num_tarDays, amax_b))
         kexp = -np.ones((self.num_tarDays, amax_b, self.k))
-        dmy = []
+        dmy = np.array([[["" for _ in range(self.k)] for _ in range(amax_b)] for _ in range(self.num_tarDays)], dtype = str)
         excess = np.zeros(12)
         distWeight, FNS_distWeight = self.calcDistWeight(amax_b)#Moddable Function
+        #At most, we can only use the k best neighbors, so only bothering recording the k lowest distances.
+        distBest = -np.ones([self.num_tarDays, amax_b, self.k])
         for day in range(self.num_tarDays):
             dateIndex_target, dateIndex_analog, FNS_ind = self.getIndices(self.y[day], self.m[day], self.d[day], amax_b, b)#Moddable Function
             if (dateIndex_target + self.f) > len(self.data):
                 excess[self.m[day]-1] += 1
                 exp[day, :] = -1
                 kexp[day, :, :] = -1
+                distBest[day, :, :] = -1
                 dmy[day, :, :] = "Not Valid"
                 continue
             dist, FNS_dist = self.calcDist(data_normalized, dateIndex_target, dateIndex_analog, amin_b, amax_b, b, distWeight)#Moddable Function
             dist_ind = dist.argsort()
-            castWeight, FNS_castWeight = self.calcCastWeight()#Moddable Function
-            kexp[day, :, :], exp[day, :], x, FNS_cast = self.calcCast(dateIndex_analog, amin_b, amax_b, dist_ind, castWeight)#Moddable Function   
-            dmy.append(x)
+            distBest[day, :, :] = dist_ind[:, :self.k]
+            castWeight, FNS_castWeight = self.calcCastWeight(dist_ind)#Moddable Function
+            kexp[day, :, :], exp[day, :], dmy[day, :, :], FNS_cast = self.calcCast(dateIndex_analog, amin_b, amax_b, dist_ind, castWeight)#Moddable Function   
+            
         print(f"b = {b} completed")
-        return {"exp": trim_(exp, amin_b), "kexp" : trim_(kexp, amin_b), "dmy" : trim_(dmy, amin_b), "FNS_dist" : FNS_dist, "FNS_distWeight" : FNS_distWeight, "FNS_ind" : FNS_ind, "FNS_castWeight" : FNS_castWeight, "FNS_cast" : FNS_cast}
-    
+        return {"exp": trim_(exp, amin_b), "kexp" : trim_(kexp, amin_b), "dmy" : trim_(dmy, amin_b), "distBest" : trim_(distBest, amin_b),
+                "FNS_dist" : FNS_dist, "FNS_distWeight" : FNS_distWeight, "FNS_ind" : FNS_ind, 
+                "FNS_cast" : FNS_cast, "FNS_castWeight" : FNS_castWeight}
+    def getAndCheckTargetDates(self, y, m, d):
+        y, m, d = np.meshgrid(y, m, d)
+        y, m, d = removeImpossibleDates(y.flatten(), m.flatten(), d.flatten())
+        self.num_tarDays = len(d)
+        return y, m, d
     def dataNormalize(self):
         data_normalized_original, suffix = mf.dataNormalize(self)
         return data_normalized_original, suffix
@@ -121,8 +151,8 @@ class GEMObj:
     def calcDist(self, data_normalized, dateIndex_target, dateIndex_analog, amin_b, amax_b, b, distWeight):
         dist, suffix = mf.calcDist(self, data_normalized, dateIndex_target, dateIndex_analog, amin_b, amax_b, b, distWeight)
         return dist, suffix
-    def calcCastWeight(self):
-        castWeight, suffix = mf.calcCastWeight(self)
+    def calcCastWeight(self, dist_ind):
+        castWeight, suffix = mf.calcCastWeight(self, dist_ind)
         return castWeight, suffix
     def calcCast(self, dateIndex_analog, amin_b, amax_b, dist_ind, castWeight):
         kexp, exp, ymd_mat, suffix = mf.calcCast(self, dateIndex_analog, amin_b, amax_b, dist_ind, castWeight)
@@ -141,6 +171,9 @@ class GEMObj:
     def calcScore(self, bigDicti):
         bigDicti = mf.calcScore(self, bigDicti)
         return bigDicti
+    def getk(self, dist_ind):
+        k = mf.getk(self, dist_ind)
+        return k
 def trim_(initial, amin_b):#Trim off a values whose product with b is less than abmin
     return np.delete(initial, range(amin_b), 1)
 

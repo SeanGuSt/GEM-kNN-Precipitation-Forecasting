@@ -19,5 +19,5 @@ def eucliDist(self: GEMObj, data_normalized: np.ndarray, dateIndex_target: np.nd
         dit = dateIndex_target - a*b
         dia = dateIndex_analog - a*b
         ed += np.dot(np.power(data_normalized[dit,:] - data_normalized[dia, :], 2), distWeight[a, :])
-        dist[a, :] = copy.deepcopy(np.sqrt(ed))
+        dist[a, :] = copy.deepcopy(np.sqrt(ed/((a+1)*self.num_var)))
     return dist, suffix

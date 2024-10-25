@@ -86,11 +86,14 @@ def saveResults(self: GEMObj, bigDicti: dict, doTraining: bool):
                 f.write('"%s":%s,\n' % (key, value))
             f.write('}')
     with pd.ExcelWriter(f'{direc}/{FIL_NAME}.xlsx') as writer:
+        print(len(exp))
+        print(exp[0])
         dataframe_ea = pd.DataFrame(exp, columns=header, index=index_ea)
         dataframe_ea.to_excel(writer, sheet_name = SHT_EXP)
         dataframe_o = pd.DataFrame(O, index = index_ea)
         dataframe_o.to_excel(writer, sheet_name = SHT_OBS)
         if doTraining:
+            print("Training mode detected. Saving training results.")
             dataframe_score = pd.DataFrame(GEMC_compare, columns = header, index=index_ea)
             dataframe_cab = pd.DataFrame(chosen_pairs, columns=["(a, b) Pair"], index=index_sea)
             dataframe_cabr = pd.DataFrame(chosen_pairs_real, columns=["(a, b) Pair"], index=index_sea)
@@ -106,7 +109,12 @@ def saveResults(self: GEMObj, bigDicti: dict, doTraining: bool):
 def getDataFrameHeader(self: GEMObj, doTraining = False):
     header = []
     if not doTraining:
-        return ["Jan.", "Feb", "Mar.", "Apr.", "May", "June", "July", "Aug.", "Sep.", "Oct.", "Nov", "Dec."]
+        mons = ["Jan.", "Feb", "Mar.", "Apr.", "May", "June", "July", "Aug.", "Sep.", "Oct.", "Nov", "Dec."]
+        used_mons = []
+        for M in range(len(self.B)):
+            if M+1 in self.target_months:
+                used_mons.append(mons[M])
+        return used_mons
     for b in range(self.bmin, self.bmax+1):
         amin_b = np.maximum(np.ceil(self.abmin/b), self.amin).astype(int) - 1
         amax_b = np.minimum(np.floor(self.abmax/b), self.amax).astype(int)

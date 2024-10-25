@@ -62,19 +62,6 @@ class GEMObj:
             for dicti in ans:
                 bigDicti = self.stackResults(dicti, bigDicti)#Moddable Function
         print("Data Stacking Complete!")
-        if True:
-            print("Performing Dr. Zhang's idea...")
-            exp = np.arange(self.num_tarDays)
-            for day in range(self.num_tarDays):
-                superDist = bigDicti["distBest"][day, :, :].flatten()
-                superkexp = bigDicti["kexp"][day, :, :].flatten()
-                superDist_ind = superDist.argsort()
-                castWeight, _ = self.calcCastWeight(superDist_ind)#Moddable Function
-                k = self.getk(superDist_ind)
-                exp[day] = np.dot(superkexp[superDist_ind[:k]], castWeight)
-            bigDicti["exp_Zhang"] = exp
-            print("Dr. Zhang's idea has been tested!")
-            print(bigDicti["exp_Zhang"])
         print("Beginning (a, b) pair scoring...")
         bigDicti = self.calcScore(bigDicti)#Moddable Function
         print("(a, b) pairs scored! Choosing best (a, b) pairs...")
@@ -87,7 +74,7 @@ class GEMObj:
         self.data_normalized_original, bigDicti["FNS_norm"] = self.dataNormalize()#Moddable Function
         for M in range(len(self.B)):
             if M+1 in self.target_months:
-                self.amin = self.A[M] - 1
+                self.amin = self.A[M]
                 self.amax = self.A[M]
                 dicti = self.parloop_func(self.B[M])
                 bigDicti = self.stackResults(dicti, bigDicti)#Moddable Function
